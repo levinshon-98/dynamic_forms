@@ -1,0 +1,62 @@
+{
+  "type": "object",
+  "properties": {
+    "username": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 20,
+      "title": "Username"
+    },
+    "email": {
+      "type": "string",
+      "format": "email",
+      "title": "Email Address"
+    },
+    "password": {
+      "type": "string",
+      "format": "password",
+      "minLength": 8,
+      "title": "Password"
+    },
+    "website": {
+      "type": "string",
+      "format": "uri",
+      "title": "Website (Optional)"
+    },
+    "age": {
+      "type": "integer",
+      "minimum": 18,
+      "maximum": 120,
+      "title": "Age"
+    },
+    "birthDate": {
+      "type": "string",
+      "format": "date",
+      "title": "Date of Birth"
+    },
+    "country": {
+      "type": "string",
+      "enum": ["Israel", "USA", "UK", "Canada", "Other"],
+      "title": "Country"
+    },
+    "bio": {
+      "type": "string",
+      "maxLength": 300,
+      "title": "Short Bio"
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["JavaScript", "Python", "Java", "Kotlin", "Go", "React", "Android"]
+      },
+      "title": "Programming Skills"
+    },
+    "subscribe": {
+      "type": "boolean",
+      "title": "Subscribe to newsletter",
+      "default": false
+    }
+  },
+  "required": ["username", "email", "password", "age"]
+}
