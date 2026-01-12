@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,7 +32,8 @@ fun WelcomeScreen(
     schemas: List<SchemaMetadata>,
     isLoading: Boolean,
     onSchemaSelected: (String) -> Unit,
-    onLoadForm: () -> Unit
+    onLoadForm: () -> Unit,
+    onRefresh: () -> Unit
 ) {
     var isVisible by remember { mutableStateOf(false) }
     
@@ -93,18 +95,23 @@ fun WelcomeScreen(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Default Schema - Selected by default
+            // Default Schema - Always shown
             AnimatedVisibility(
                 visible = isVisible,
                 enter = fadeIn(animationSpec = tween(800, delayMillis = 600))
             ) {
-                val fallbackSchema = schemas.firstOrNull { it.id == "fallback" }
-                if (fallbackSchema != null) {
-                    DefaultSchemaCard(
-                        schema = fallbackSchema,
-                        onClick = { onSchemaSelected(fallbackSchema.name) }
-                    )
-                }
+                // Always show the fallback, even if not in schemas list yet
+                val fallbackSchema = schemas.firstOrNull { it.id == "fallback" } ?: SchemaMetadata(
+                    id = "fallback",
+                    name = "ברירת מחדל",
+                    schema = emptyMap(),
+                    createdAt = "",
+                    updatedAt = ""
+                )
+                DefaultSchemaCard(
+                    schema = fallbackSchema,
+                    onClick = { onSchemaSelected(fallbackSchema.name) }
+                )
             }
             
             // Server Schemas List
@@ -113,73 +120,96 @@ fun WelcomeScreen(
                 enter = fadeIn(animationSpec = tween(800, delayMillis = 700)) + 
                         expandVertically(animationSpec = tween(600, delayMillis = 700))
             ) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                )
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    )
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(bottom = 16.dp)
+                    Column(
+                        modifier = Modifier.padding(16.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Sensors,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = "סכמות מהשרת",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    
-                    if (isLoading) {
-                        Box(
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(150.dp),
-                            contentAlignment = Alignment.Center
+                                .padding(bottom = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                CircularProgressIndicator()
-                                Text("טוען רשימת סכמות...")
+                                Icon(
+                                    imageVector = Icons.Default.Sensors,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "סכמות מהשרת",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            
+                            // Refresh button
+                            IconButton(
+                                onClick = onRefresh,
+                                enabled = !isLoading
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = "רענן",
+                                    tint = if (isLoading) 
+                                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                                    else 
+                                        MaterialTheme.colorScheme.primary
+                                )
                             }
                         }
-                    } else {
-                        val serverSchemas = schemas.filter { it.id != "fallback" }
-                        if (serverSchemas.isEmpty()) {
+                        
+                        if (isLoading) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 16.dp),
+                                    .height(150.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(
-                                    text = "אין סכמות זמינות בשרת",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    CircularProgressIndicator()
+                                    Text("טוען רשימת סכמות...")
+                                }
                             }
                         } else {
-                            LazyColumn(
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.heightIn(max = 300.dp)
-                            ) {
-                                items(serverSchemas) { schema ->
-                                    SchemaCard(
-                                        schema = schema,
-                                        onClick = { onSchemaSelected(schema.name) }
+                            val serverSchemas = schemas.filter { it.id != "fallback" }
+                            if (serverSchemas.isEmpty()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 16.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "אין סכמות זמינות בשרת",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
+                                }
+                            } else {
+                                LazyColumn(
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.heightIn(max = 300.dp)
+                                ) {
+                                    items(serverSchemas) { schema ->
+                                        SchemaCard(
+                                            schema = schema,
+                                            onClick = { onSchemaSelected(schema.name) }
+                                        )
+                                    }
                                 }
                             }
                         }

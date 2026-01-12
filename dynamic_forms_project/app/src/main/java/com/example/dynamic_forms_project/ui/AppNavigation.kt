@@ -1,8 +1,6 @@
 package com.example.dynamic_forms_project.ui
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -21,6 +19,19 @@ fun AppNavigation(viewModel: FormViewModel = viewModel()) {
     val schemas by viewModel.schemas.collectAsState()
     val schemasLoading by viewModel.schemasLoading.collectAsState()
     
+    // Store success payload to preserve it during navigation
+    var successPayload by remember { mutableStateOf("") }
+    
+    // Handle navigation to success screen
+    LaunchedEffect(uiState) {
+        if (uiState is FormUiState.Success) {
+            successPayload = (uiState as FormUiState.Success).payload
+            navController.navigate("success") {
+                popUpTo("form") { inclusive = true }
+            }
+        }
+    }
+    
     NavHost(
         navController = navController,
         startDestination = "welcome"
@@ -36,18 +47,14 @@ fun AppNavigation(viewModel: FormViewModel = viewModel()) {
                 onLoadForm = {
                     viewModel.loadSchema()
                     navController.navigate("form")
+                },
+                onRefresh = {
+                    viewModel.loadAllSchemas()
                 }
             )
         }
         
         composable("form") {
-            // Navigate to success when submission completes
-            if (uiState is FormUiState.Success) {
-                navController.navigate("success") {
-                    popUpTo("form") { inclusive = true }
-                }
-            }
-            
             FormScreen(
                 uiState = uiState,
                 viewModel = viewModel,
@@ -64,12 +71,11 @@ fun AppNavigation(viewModel: FormViewModel = viewModel()) {
         }
         
         composable("success") {
-            val payload = (uiState as? FormUiState.Success)?.payload ?: ""
-            
             SuccessScreen(
-                payload = payload,
+                payload = successPayload,
                 onSubmitAnother = {
                     viewModel.reset()
+                    successPayload = ""
                     navController.navigate("welcome") {
                         popUpTo("welcome") { inclusive = true }
                     }

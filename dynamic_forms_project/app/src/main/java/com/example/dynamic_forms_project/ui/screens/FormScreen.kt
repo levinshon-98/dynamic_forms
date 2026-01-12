@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,6 +35,7 @@ fun FormScreen(
 ) {
     var showSchemaDialog by remember { mutableStateOf(false) }
     var showPayloadDialog by remember { mutableStateOf(false) }
+    var showUiSchemaDialog by remember { mutableStateOf(false) }
     
     Scaffold(
         topBar = {
@@ -41,10 +43,16 @@ fun FormScreen(
                 title = { Text("הגדרת חיישן") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "חזור")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "חזור")
                     }
                 },
                 actions = {
+                    // UI Schema button - only if uiSchema exists
+                    if ((uiState as? FormUiState.FormReady)?.uiSchema != null) {
+                        IconButton(onClick = { showUiSchemaDialog = true }) {
+                            Icon(Icons.Default.ViewModule, contentDescription = "תצוגת UI Schema")
+                        }
+                    }
                     IconButton(onClick = { showPayloadDialog = true }) {
                         Icon(Icons.Default.DataObject, contentDescription = "תצוגת נתונים")
                     }
@@ -124,7 +132,7 @@ fun FormScreen(
                         )
                         Text(uiState.message)
                         Button(onClick = onBack) {
-                            Text("Go Back")
+                            Text("חזור")
                         }
                     }
                 }
@@ -166,6 +174,31 @@ fun FormScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showPayloadDialog = false }) {
+                    Text("Close")
+                }
+            }
+        )
+    }
+    
+    // UI Schema Dialog
+    if (showUiSchemaDialog) {
+        val uiSchemaJson = (uiState as? FormUiState.FormReady)?.uiSchema?.let {
+            com.fasterxml.jackson.databind.ObjectMapper()
+                .writerWithDefaultPrettyPrinter()
+                .writeValueAsString(it)
+        } ?: "{}"
+        
+        AlertDialog(
+            onDismissRequest = { showUiSchemaDialog = false },
+            title = { Text("UI Schema") },
+            text = {
+                JsonViewer(
+                    json = uiSchemaJson,
+                    modifier = Modifier.heightIn(max = 400.dp)
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showUiSchemaDialog = false }) {
                     Text("Close")
                 }
             }

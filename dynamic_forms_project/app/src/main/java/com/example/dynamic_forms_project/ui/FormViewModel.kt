@@ -40,7 +40,7 @@ class FormViewModel(application: Application) : AndroidViewModel(application) {
         loadAllSchemas()
     }
     
-    private fun loadAllSchemas() {
+    fun loadAllSchemas() {
         viewModelScope.launch {
             _schemasLoading.value = true
             repository.getAllSchemas()

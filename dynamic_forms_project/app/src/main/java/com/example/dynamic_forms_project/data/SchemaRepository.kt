@@ -23,8 +23,6 @@ class SchemaRepository(private val context: Context) {
     
     suspend fun getAllSchemas(): Result<List<SchemaMetadata>> = withContext(Dispatchers.IO) {
         try {
-            Log.d(TAG, "📡 Fetching schemas list from: $ALL_SCHEMAS_URL")
-            
             val request = Request.Builder()
                 .url(ALL_SCHEMAS_URL)
                 .get()
@@ -33,14 +31,22 @@ class SchemaRepository(private val context: Context) {
             val response = client.newCall(request).execute()
             val responseBody = response.body?.string() ?: ""
             
-            Log.d(TAG, "📥 Response Code: ${response.code}")
-            Log.d(TAG, "📥 Response: $responseBody")
-            
             if (response.isSuccessful && responseBody.isNotEmpty()) {
                 val jsonNode = mapper.readTree(responseBody)
                 
                 if (jsonNode["status"]?.asText() == "success") {
                     val schemas = mutableListOf<SchemaMetadata>()
+                    
+                    // Always add fallback first
+                    schemas.add(SchemaMetadata(
+                        id = "fallback",
+                        name = "ברירת מחדל",
+                        schema = emptyMap(),
+                        createdAt = "",
+                        updatedAt = ""
+                    ))
+                    
+                    // Add server schemas
                     jsonNode["data"]?.forEach { item ->
                         schemas.add(SchemaMetadata(
                             id = item["id"]?.asText() ?: "",
@@ -50,12 +56,10 @@ class SchemaRepository(private val context: Context) {
                             updatedAt = item["updatedAt"]?.asText() ?: ""
                         ))
                     }
-                    Log.d(TAG, "✅ Loaded ${schemas.size} schemas")
                     return@withContext Result.success(schemas)
                 }
             }
             
-            Log.w(TAG, "⚠️ Failed to load schemas, using fallback")
             Result.success(listOf(
                 SchemaMetadata(
                     id = "fallback",
@@ -66,7 +70,7 @@ class SchemaRepository(private val context: Context) {
                 )
             ))
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Error loading schemas: ${e.message}", e)
+
             Result.success(listOf(
                 SchemaMetadata(
                     id = "fallback",
@@ -80,13 +84,14 @@ class SchemaRepository(private val context: Context) {
     }
     
     suspend fun loadSchemaByName(name: String): Result<String> = withContext(Dispatchers.IO) {
-        if (name == "fallback") {
+        if (name == "ברירת מחדל" || name == "fallback") {
             return@withContext loadLocalSchema()
         }
         
         try {
-            val url = "$API_URL?name=$name"
-            Log.d(TAG, "📡 Loading schema: $url")
+            // URL encode the name parameter to handle special characters
+            val encodedName = java.net.URLEncoder.encode(name, "UTF-8")
+            val url = "$API_URL?name=$encodedName"
             
             val request = Request.Builder()
                 .url(url)
@@ -96,23 +101,61 @@ class SchemaRepository(private val context: Context) {
             val response = client.newCall(request).execute()
             val responseBody = response.body?.string() ?: ""
             
-            Log.d(TAG, "📥 Response Code: ${response.code}")
-            Log.d(TAG, "📥 Response Length: ${responseBody.length} chars")
-            
-            if (response.isSuccessful) {
-                if (responseBody.contains("properties") && !responseBody.contains("\"status\":\"error\"")) {
-                    Log.d(TAG, "✅ Schema loaded successfully")
+            if (response.isSuccessful && responseBody.isNotEmpty()) {
+                val jsonNode = mapper.readTree(responseBody)
+                
+                // Check if response has status field (server response format)
+                if (jsonNode.has("status") && jsonNode["status"]?.asText() == "success") {
+                    val dataNode = jsonNode["data"]
+                    if (dataNode == null) {
+                        return@withContext Result.failure(Exception("יש בעיה בסכמה: אין נתונים בתגובה"))
+                    }
+                    
+                    // Handle both array and object formats
+                    val schemaItem = when {
+                        dataNode.isArray && dataNode.size() > 0 -> {
+                            dataNode.get(0)
+                        }
+                        dataNode.isObject -> {
+                            dataNode
+                        }
+                        else -> {
+                            return@withContext Result.failure(Exception("יש בעיה בסכמה: פורמט data לא מזוהה"))
+                        }
+                    }
+                    
+                    if (schemaItem != null) {
+                        // Extract schema from data item
+                        val schemaNode = schemaItem.get("schema")
+                        if (schemaNode != null) {
+                            val schemaJson = mapper.writeValueAsString(schemaNode)
+                            
+                            // Validate that schema has required fields
+                            if (schemaNode.has("type") && schemaNode.has("properties")) {
+                                return@withContext Result.success(schemaJson)
+                            } else {
+                                return@withContext Result.failure(Exception("יש בעיה בסכמה: חסרים שדות חובה (type או properties)"))
+                            }
+                        } else {
+                            return@withContext Result.failure(Exception("יש בעיה בסכמה: לא נמצא שדה schema בתגובה"))
+                        }
+                    } else {
+                        return@withContext Result.failure(Exception("יש בעיה בסכמה: אובייקט הסכמה ריק"))
+                    }
+                } else if (jsonNode.has("properties") && !jsonNode.has("status")) {
+                    // Direct schema format
                     return@withContext Result.success(responseBody)
                 } else {
-                    Log.w(TAG, "⚠️ Invalid schema response: $responseBody")
+                    return@withContext Result.failure(Exception("יש בעיה בסכמה: תגובה לא תקינה מהשרת"))
                 }
             }
+            
+            return@withContext Result.failure(Exception("יש בעיה בסכמה: שגיאה ${response.code} מהשרת"))
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Error loading schema: ${e.message}", e)
+            return@withContext Result.failure(Exception("יש בעיה בסכמה: ${e.message}"))
         }
         
-        Log.d(TAG, "📂 Using fallback schema")
-        loadLocalSchema()
+        Result.failure(Exception("יש בעיה בסכמה: שגיאה לא צפויה"))
     }
     
     suspend fun loadSchema(): Result<String> = withContext(Dispatchers.IO) {
@@ -125,10 +168,8 @@ class SchemaRepository(private val context: Context) {
                 .open("fallback_schema.json")
                 .bufferedReader()
                 .use { it.readText() }
-            Log.d(TAG, "✅ Loaded fallback schema (${json.length} chars)")
             Result.success(json)
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Error loading fallback: ${e.message}", e)
             Result.failure(e)
         }
     }
