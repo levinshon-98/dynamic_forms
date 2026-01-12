@@ -55,3 +55,9 @@ You can create and manage JSON schemas using the Schema Forge web tool:
 3. Run on an emulator or device (API 24+)
 4. you can create your owm schemes in the provided link
 5. the UI scheme is not provided from the server - i only implemented this on the local example. 
+
+## Future Improvements
+
+- **UI Schema from Server** - Fetch UI Schema definitions from the backend alongside JSON Schema
+- **Extended Schema Support** - Add more UI Schema options (tabs, wizards, conditional layouts) and support additional JSON Schema field types
+- **WebView Integration** - Consider migrating to a WebView-based form renderer for maximum flexibility and cross-platform consistency
