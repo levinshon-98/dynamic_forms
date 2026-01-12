@@ -29,24 +29,35 @@ fun DynamicField(
     value: Any?,
     error: String?,
     onValueChange: (Any?) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
 ) {
     val hasError = error != null
     val hasValue = value != null && value.toString().isNotBlank()
     
     Column(modifier = modifier.fillMaxWidth()) {
         when (field.type) {
-            FieldType.TEXT -> TextFieldComponent(field, value, hasError, onValueChange)
-            FieldType.NUMBER -> NumberFieldComponent(field, value, hasError, onValueChange)
-            FieldType.BOOLEAN -> CheckboxComponent(field, value, onValueChange)
-            FieldType.DROPDOWN -> DropdownComponent(field, value, hasError, onValueChange)
-            FieldType.EMAIL -> EmailFieldComponent(field, value, hasError, onValueChange)
-            FieldType.URL -> UrlFieldComponent(field, value, hasError, onValueChange)
-            FieldType.PASSWORD -> PasswordFieldComponent(field, value, hasError, onValueChange)
-            FieldType.DATE -> DateFieldComponent(field, value, hasError, onValueChange)
-            FieldType.TIME -> TimeFieldComponent(field, value, hasError, onValueChange)
-            FieldType.TEXTAREA -> TextAreaComponent(field, value, hasError, onValueChange)
-            FieldType.MULTISELECT -> MultiSelectComponent(field, value, hasError, onValueChange)
+            FieldType.TEXT -> TextFieldComponent(field, value, hasError, enabled, onValueChange)
+            FieldType.NUMBER -> NumberFieldComponent(field, value, hasError, enabled, onValueChange)
+            FieldType.BOOLEAN -> CheckboxComponent(field, value, enabled, onValueChange)
+            FieldType.DROPDOWN -> DropdownComponent(field, value, hasError, enabled, onValueChange)
+            FieldType.EMAIL -> EmailFieldComponent(field, value, hasError, enabled, onValueChange)
+            FieldType.URL -> UrlFieldComponent(field, value, hasError, enabled, onValueChange)
+            FieldType.PASSWORD -> PasswordFieldComponent(field, value, hasError, enabled, onValueChange)
+            FieldType.DATE -> DateFieldComponent(field, value, hasError, enabled, onValueChange)
+            FieldType.TIME -> TimeFieldComponent(field, value, hasError, enabled, onValueChange)
+            FieldType.TEXTAREA -> TextAreaComponent(field, value, hasError, enabled, onValueChange)
+            FieldType.MULTISELECT -> MultiSelectComponent(field, value, hasError, enabled, onValueChange)
+        }
+        
+        // Description text
+        if (!field.description.isNullOrBlank()) {
+            Text(
+                text = field.description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 4.dp, top = 4.dp)
+            )
         }
         
         // Error or success indicator
@@ -93,6 +104,7 @@ private fun TextFieldComponent(
     field: FormField,
     value: Any?,
     hasError: Boolean,
+    enabled: Boolean,
     onValueChange: (Any?) -> Unit
 ) {
     OutlinedTextField(
@@ -102,6 +114,7 @@ private fun TextFieldComponent(
             Text(buildLabel(field)) 
         },
         isError = hasError,
+        enabled = enabled,
         modifier = Modifier.fillMaxWidth(),
         singleLine = true
     )
@@ -112,6 +125,7 @@ private fun NumberFieldComponent(
     field: FormField,
     value: Any?,
     hasError: Boolean,
+    enabled: Boolean,
     onValueChange: (Any?) -> Unit
 ) {
     OutlinedTextField(
@@ -122,6 +136,7 @@ private fun NumberFieldComponent(
         },
         label = { Text(buildLabel(field)) },
         isError = hasError,
+        enabled = enabled,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         modifier = Modifier.fillMaxWidth(),
         singleLine = true
@@ -132,6 +147,7 @@ private fun NumberFieldComponent(
 private fun CheckboxComponent(
     field: FormField,
     value: Any?,
+    enabled: Boolean,
     onValueChange: (Any?) -> Unit
 ) {
     Row(
@@ -142,7 +158,8 @@ private fun CheckboxComponent(
     ) {
         Checkbox(
             checked = value as? Boolean ?: false,
-            onCheckedChange = { onValueChange(it) }
+            onCheckedChange = { onValueChange(it) },
+            enabled = enabled
         )
         Text(
             text = field.title,
@@ -158,6 +175,7 @@ private fun DropdownComponent(
     field: FormField,
     value: Any?,
     hasError: Boolean,
+    enabled: Boolean,
     onValueChange: (Any?) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -165,7 +183,7 @@ private fun DropdownComponent(
     
     ExposedDropdownMenuBox(
         expanded = expanded,
-        onExpandedChange = { expanded = !expanded }
+        onExpandedChange = { if (enabled) expanded = !expanded }
     ) {
         OutlinedTextField(
             value = value?.toString() ?: "",
@@ -173,6 +191,7 @@ private fun DropdownComponent(
             readOnly = true,
             label = { Text(buildLabel(field)) },
             isError = hasError,
+            enabled = enabled,
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -189,7 +208,8 @@ private fun DropdownComponent(
                     onClick = {
                         onValueChange(option)
                         expanded = false
-                    }
+                    },
+                    enabled = enabled
                 )
             }
         }
@@ -202,13 +222,15 @@ private fun EmailFieldComponent(
     field: FormField,
     value: Any?,
     hasError: Boolean,
+    enabled: Boolean,
     onValueChange: (Any?) -> Unit
 ) {
     OutlinedTextField(
         value = value?.toString() ?: "",
-        onValueChange = onValueChange,
+        onValueChange = { onValueChange(it) },
         label = { Text(buildLabel(field)) },
         isError = hasError,
+        enabled = enabled,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
         modifier = Modifier.fillMaxWidth()
     )
@@ -220,13 +242,15 @@ private fun UrlFieldComponent(
     field: FormField,
     value: Any?,
     hasError: Boolean,
+    enabled: Boolean,
     onValueChange: (Any?) -> Unit
 ) {
     OutlinedTextField(
         value = value?.toString() ?: "",
-        onValueChange = onValueChange,
+        onValueChange = { onValueChange(it) },
         label = { Text(buildLabel(field)) },
         isError = hasError,
+        enabled = enabled,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
         modifier = Modifier.fillMaxWidth()
     )
@@ -238,19 +262,21 @@ private fun PasswordFieldComponent(
     field: FormField,
     value: Any?,
     hasError: Boolean,
+    enabled: Boolean,
     onValueChange: (Any?) -> Unit
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
     
     OutlinedTextField(
         value = value?.toString() ?: "",
-        onValueChange = onValueChange,
+        onValueChange = { onValueChange(it) },
         label = { Text(buildLabel(field)) },
         isError = hasError,
+        enabled = enabled,
         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         trailingIcon = {
-            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+            IconButton(onClick = { passwordVisible = !passwordVisible }, enabled = enabled) {
                 Icon(
                     imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
                     contentDescription = if (passwordVisible) "Hide password" else "Show password"
@@ -267,14 +293,16 @@ private fun DateFieldComponent(
     field: FormField,
     value: Any?,
     hasError: Boolean,
+    enabled: Boolean,
     onValueChange: (Any?) -> Unit
 ) {
     OutlinedTextField(
         value = value?.toString() ?: "",
-        onValueChange = onValueChange,
+        onValueChange = { onValueChange(it) },
         label = { Text(buildLabel(field)) },
         placeholder = { Text("YYYY-MM-DD") },
         isError = hasError,
+        enabled = enabled,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         modifier = Modifier.fillMaxWidth()
     )
@@ -286,14 +314,16 @@ private fun TimeFieldComponent(
     field: FormField,
     value: Any?,
     hasError: Boolean,
+    enabled: Boolean,
     onValueChange: (Any?) -> Unit
 ) {
     OutlinedTextField(
         value = value?.toString() ?: "",
-        onValueChange = onValueChange,
+        onValueChange = { onValueChange(it) },
         label = { Text(buildLabel(field)) },
         placeholder = { Text("HH:MM") },
         isError = hasError,
+        enabled = enabled,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         modifier = Modifier.fillMaxWidth()
     )
@@ -305,13 +335,15 @@ private fun TextAreaComponent(
     field: FormField,
     value: Any?,
     hasError: Boolean,
+    enabled: Boolean,
     onValueChange: (Any?) -> Unit
 ) {
     OutlinedTextField(
         value = value?.toString() ?: "",
-        onValueChange = onValueChange,
+        onValueChange = { onValueChange(it) },
         label = { Text(buildLabel(field)) },
         isError = hasError,
+        enabled = enabled,
         minLines = 3,
         maxLines = 6,
         modifier = Modifier.fillMaxWidth()
@@ -325,6 +357,7 @@ private fun MultiSelectComponent(
     field: FormField,
     value: Any?,
     hasError: Boolean,
+    enabled: Boolean,
     onValueChange: (Any?) -> Unit
 ) {
     val options = field.options ?: emptyList()
@@ -333,7 +366,7 @@ private fun MultiSelectComponent(
     
     ExposedDropdownMenuBox(
         expanded = expanded,
-        onExpandedChange = { expanded = it }
+        onExpandedChange = { if (enabled) expanded = it }
     ) {
         OutlinedTextField(
             value = if (selectedItems.isEmpty()) "" else "${selectedItems.size} selected",
@@ -341,6 +374,7 @@ private fun MultiSelectComponent(
             readOnly = true,
             label = { Text(buildLabel(field)) },
             isError = hasError,
+            enabled = enabled,
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -361,7 +395,8 @@ private fun MultiSelectComponent(
                         ) {
                             Checkbox(
                                 checked = isSelected,
-                                onCheckedChange = null
+                                onCheckedChange = null,
+                                enabled = enabled
                             )
                             Text(option)
                         }
@@ -373,7 +408,8 @@ private fun MultiSelectComponent(
                             selectedItems + option
                         }
                         onValueChange(newSelection)
-                    }
+                    },
+                    enabled = enabled
                 )
             }
         }

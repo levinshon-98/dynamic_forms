@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.dynamic_forms_project.data.FormField
 import com.example.dynamic_forms_project.ui.FormUiState
+import com.example.dynamic_forms_project.ui.FormViewModel
 import com.example.dynamic_forms_project.ui.components.DynamicField
 import com.example.dynamic_forms_project.ui.components.JsonViewer
 import com.example.dynamic_forms_project.ui.components.LoadingButton
@@ -23,6 +24,7 @@ import com.example.dynamic_forms_project.ui.components.LoadingButton
 @Composable
 fun FormScreen(
     uiState: FormUiState,
+    viewModel: FormViewModel,
     onFieldChange: (String, Any?) -> Unit,
     onSubmit: () -> Unit,
     onBack: () -> Unit,
@@ -36,18 +38,18 @@ fun FormScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Dynamic Form") },
+                title = { Text("הגדרת חיישן") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Default.ArrowBack, contentDescription = "חזור")
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showSchemaDialog = true }) {
-                        Icon(Icons.Default.Description, contentDescription = "View Schema")
-                    }
                     IconButton(onClick = { showPayloadDialog = true }) {
-                        Icon(Icons.Default.DataObject, contentDescription = "View Payload")
+                        Icon(Icons.Default.DataObject, contentDescription = "תצוגת נתונים")
+                    }
+                    IconButton(onClick = { showSchemaDialog = true }) {
+                        Icon(Icons.Default.Description, contentDescription = "תצוגת Schema")
                     }
                 }
             )
@@ -72,10 +74,9 @@ fun FormScreen(
             }
             
             is FormUiState.FormReady -> {
-                FormContent(
-                    fields = uiState.fields,
-                    formData = uiState.formData,
-                    errors = uiState.errors,
+                FormContentWithLayout(
+                    state = uiState,
+                    viewModel = viewModel,
                     onFieldChange = onFieldChange,
                     onSubmit = onSubmit,
                     isLoading = false,
@@ -85,10 +86,17 @@ fun FormScreen(
             }
             
             is FormUiState.Submitting -> {
-                FormContent(
-                    fields = uiState.fields,
-                    formData = uiState.formData,
-                    errors = emptyMap(),
+                FormContentWithLayout(
+                    state = uiState.let {
+                        FormUiState.FormReady(
+                            fields = it.fields,
+                            formData = it.formData,
+                            errors = emptyMap(),
+                            schemaJson = "",
+                            uiSchema = null
+                        )
+                    },
+                    viewModel = viewModel,
                     onFieldChange = { _, _ -> },
                     onSubmit = { },
                     isLoading = true,
@@ -166,10 +174,9 @@ fun FormScreen(
 }
 
 @Composable
-private fun FormContent(
-    fields: List<FormField>,
-    formData: Map<String, Any?>,
-    errors: Map<String, String>,
+private fun FormContentWithLayout(
+    state: FormUiState.FormReady,
+    viewModel: FormViewModel,
     onFieldChange: (String, Any?) -> Unit,
     onSubmit: () -> Unit,
     isLoading: Boolean,
@@ -183,19 +190,15 @@ private fun FormContent(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        fields.forEach { field ->
-            AnimatedVisibility(
-                visible = true,
-                enter = fadeIn() + slideInVertically()
-            ) {
-                DynamicField(
-                    field = field,
-                    value = formData[field.name],
-                    error = errors[field.name],
-                    onValueChange = { onFieldChange(field.name, it) }
-                )
-            }
-        }
+        com.example.dynamic_forms_project.ui.components.FormContent(
+            fields = state.fields,
+            formData = state.formData,
+            errors = state.errors,
+            uiSchema = state.uiSchema,
+            isFieldVisible = { viewModel.isFieldVisible(it) },
+            isFieldEnabled = { viewModel.isFieldEnabled(it) },
+            onValueChange = onFieldChange
+        )
         
         Spacer(modifier = Modifier.height(16.dp))
         

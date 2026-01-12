@@ -18,6 +18,8 @@ import com.example.dynamic_forms_project.ui.screens.WelcomeScreen
 fun AppNavigation(viewModel: FormViewModel = viewModel()) {
     val navController = rememberNavController()
     val uiState by viewModel.uiState.collectAsState()
+    val schemas by viewModel.schemas.collectAsState()
+    val schemasLoading by viewModel.schemasLoading.collectAsState()
     
     NavHost(
         navController = navController,
@@ -25,6 +27,12 @@ fun AppNavigation(viewModel: FormViewModel = viewModel()) {
     ) {
         composable("welcome") {
             WelcomeScreen(
+                schemas = schemas,
+                isLoading = schemasLoading,
+                onSchemaSelected = { schemaName ->
+                    viewModel.loadSchemaByName(schemaName)
+                    navController.navigate("form")
+                },
                 onLoadForm = {
                     viewModel.loadSchema()
                     navController.navigate("form")
@@ -42,6 +50,7 @@ fun AppNavigation(viewModel: FormViewModel = viewModel()) {
             
             FormScreen(
                 uiState = uiState,
+                viewModel = viewModel,
                 onFieldChange = viewModel::updateField,
                 onSubmit = viewModel::submit,
                 onBack = {

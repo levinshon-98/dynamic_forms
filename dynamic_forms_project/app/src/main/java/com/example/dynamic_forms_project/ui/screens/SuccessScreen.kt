@@ -68,7 +68,7 @@ fun SuccessScreen(
             enter = fadeIn(animationSpec = tween(500, delayMillis = 300))
         ) {
             Text(
-                text = "Form Submitted!",
+                text = "הגדרת חיישן הושלמה!",
                 style = MaterialTheme.typography.headlineMedium
             )
         }
@@ -80,7 +80,7 @@ fun SuccessScreen(
             enter = fadeIn(animationSpec = tween(500, delayMillis = 500))
         ) {
             Text(
-                text = "Your data has been sent successfully",
+                text = "הנתונים נשלחו בהצלחה",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -102,7 +102,7 @@ fun SuccessScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "Submitted Payload",
+                        text = "נתונים שנשלחו",
                         style = MaterialTheme.typography.titleMedium
                     )
                     Spacer(modifier = Modifier.height(8.dp))
@@ -122,7 +122,7 @@ fun SuccessScreen(
                 onClick = onSubmitAnother,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Submit Another Form")
+                Text("הגדר חיישן נוסף")
             }
         }
     }

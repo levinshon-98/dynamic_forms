@@ -35,9 +35,108 @@ class SchemaParser {
                 defaultValue = parseDefault(prop),
                 format = prop["format"]?.asText(),
                 minLength = prop["minLength"]?.asInt(),
-                maxLength = prop["maxLength"]?.asInt()
+                maxLength = prop["maxLength"]?.asInt(),
+                description = prop["description"]?.asText()
             )
         }.toList()
+    }
+    
+    fun parseUiSchema(json: String): UiSchema? {
+        return try {
+            val root = mapper.readTree(json)
+            val uiSchemaNode = root["uiSchema"] ?: return null
+            
+            UiSchema(
+                layout = parseLayout(uiSchemaNode["layout"]?.asText()),
+                columns = uiSchemaNode["columns"]?.asInt() ?: 1,
+                groups = parseGroups(uiSchemaNode["groups"]),
+                fieldOrder = parseFieldOrder(uiSchemaNode["fieldOrder"]),
+                spacing = uiSchemaNode["spacing"]?.asInt() ?: 16,
+                rules = parseRules(uiSchemaNode["rules"])
+            )
+        } catch (e: Exception) {
+            null
+        }
+    }
+    
+    private fun parseLayout(layout: String?): LayoutType {
+        return when (layout?.lowercase()) {
+            "grid" -> LayoutType.GRID
+            else -> LayoutType.VERTICAL
+        }
+    }
+    
+    private fun parseGroups(groupsNode: JsonNode?): List<FieldGroup> {
+        if (groupsNode == null || !groupsNode.isArray) return emptyList()
+        
+        return groupsNode.map { groupNode ->
+            FieldGroup(
+                title = groupNode["title"]?.asText() ?: "",
+                fields = groupNode["fields"]?.map { it.asText() } ?: emptyList(),
+                collapsible = groupNode["collapsible"]?.asBoolean() ?: false,
+                defaultExpanded = groupNode["defaultExpanded"]?.asBoolean() ?: true
+            )
+        }
+    }
+    
+    private fun parseFieldOrder(orderNode: JsonNode?): List<String> {
+        if (orderNode == null || !orderNode.isArray) return emptyList()
+        return orderNode.map { it.asText() }
+    }
+    
+    private fun parseRules(rulesNode: JsonNode?): List<ConditionalRule> {
+        if (rulesNode == null || !rulesNode.isArray) return emptyList()
+        
+        return rulesNode.mapNotNull { ruleNode ->
+            try {
+                val conditionNode = ruleNode["condition"] ?: return@mapNotNull null
+                
+                ConditionalRule(
+                    field = ruleNode["field"]?.asText() ?: return@mapNotNull null,
+                    effect = parseEffect(ruleNode["effect"]?.asText()),
+                    condition = Condition(
+                        field = conditionNode["field"]?.asText() ?: return@mapNotNull null,
+                        operator = parseOperator(conditionNode["operator"]?.asText()),
+                        value = conditionNode["value"]?.let { parseValue(it) }
+                    )
+                )
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+    
+    private fun parseEffect(effect: String?): RuleEffect {
+        return when (effect?.uppercase()) {
+            "SHOW" -> RuleEffect.SHOW
+            "HIDE" -> RuleEffect.HIDE
+            "ENABLE" -> RuleEffect.ENABLE
+            "DISABLE" -> RuleEffect.DISABLE
+            else -> RuleEffect.HIDE
+        }
+    }
+    
+    private fun parseOperator(operator: String?): ConditionOperator {
+        return when (operator?.uppercase()) {
+            "EQUALS" -> ConditionOperator.EQUALS
+            "NOT_EQUALS" -> ConditionOperator.NOT_EQUALS
+            "CONTAINS" -> ConditionOperator.CONTAINS
+            "GREATER_THAN" -> ConditionOperator.GREATER_THAN
+            "LESS_THAN" -> ConditionOperator.LESS_THAN
+            "IS_EMPTY" -> ConditionOperator.IS_EMPTY
+            "NOT_EMPTY" -> ConditionOperator.NOT_EMPTY
+            else -> ConditionOperator.EQUALS
+        }
+    }
+    
+    private fun parseValue(node: JsonNode): Any? {
+        return when {
+            node.isBoolean -> node.asBoolean()
+            node.isInt -> node.asInt()
+            node.isDouble -> node.asDouble()
+            node.isTextual -> node.asText()
+            else -> null
+        }
     }
     
     private fun parseType(prop: JsonNode): FieldType {
@@ -86,7 +185,7 @@ class SchemaParser {
         }
         
         // Array with items.enum (for multiselect)
-        prop["items"]?.["enum"]?.let { enumNode ->
+        prop["items"]?.get("enum")?.let { enumNode ->
             return enumNode.map { it.asText() }
         }
         

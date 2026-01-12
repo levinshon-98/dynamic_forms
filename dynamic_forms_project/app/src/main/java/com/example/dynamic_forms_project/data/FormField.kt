@@ -12,7 +12,8 @@ data class FormField(
     val defaultValue: Any? = null,
     val format: String? = null, // email, uri, date, time, password
     val minLength: Int? = null,
-    val maxLength: Int? = null
+    val maxLength: Int? = null,
+    val description: String? = null // Description/help text
 )
 
 enum class FieldType {

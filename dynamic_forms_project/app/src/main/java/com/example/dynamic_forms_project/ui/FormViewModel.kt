@@ -6,6 +6,11 @@ import androidx.lifecycle.viewModelScope
 import com.example.dynamic_forms_project.data.FormField
 import com.example.dynamic_forms_project.data.SchemaParser
 import com.example.dynamic_forms_project.data.SchemaRepository
+import com.example.dynamic_forms_project.data.SchemaMetadata
+import com.example.dynamic_forms_project.data.UiSchema
+import com.example.dynamic_forms_project.data.Condition
+import com.example.dynamic_forms_project.data.ConditionOperator
+import com.example.dynamic_forms_project.data.RuleEffect
 import com.fasterxml.jackson.databind.ObjectMapper
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,13 +30,46 @@ class FormViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow<FormUiState>(FormUiState.Initial)
     val uiState: StateFlow<FormUiState> = _uiState.asStateFlow()
     
-    fun loadSchema() {
+    private val _schemas = MutableStateFlow<List<SchemaMetadata>>(emptyList())
+    val schemas: StateFlow<List<SchemaMetadata>> = _schemas.asStateFlow()
+    
+    private val _schemasLoading = MutableStateFlow(false)
+    val schemasLoading: StateFlow<Boolean> = _schemasLoading.asStateFlow()
+    
+    init {
+        loadAllSchemas()
+    }
+    
+    private fun loadAllSchemas() {
+        viewModelScope.launch {
+            _schemasLoading.value = true
+            repository.getAllSchemas()
+                .onSuccess { schemasList ->
+                    _schemas.value = schemasList
+                }
+                .onFailure {
+                    _schemas.value = listOf(
+                        SchemaMetadata(
+                            id = "fallback",
+                            name = "Sensor Configuration (Local)",
+                            schema = emptyMap(),
+                            createdAt = "",
+                            updatedAt = ""
+                        )
+                    )
+                }
+            _schemasLoading.value = false
+        }
+    }
+    
+    fun loadSchemaByName(name: String) {
         viewModelScope.launch {
             _uiState.value = FormUiState.Loading
             
-            repository.loadSchema()
+            repository.loadSchemaByName(name)
                 .onSuccess { json ->
                     val fields = parser.parse(json)
+                    val uiSchema = parser.parseUiSchema(json)
                     val initialData = fields.associate { 
                         it.name to (it.defaultValue ?: getDefaultForType(it))
                     }
@@ -40,7 +78,36 @@ class FormViewModel(application: Application) : AndroidViewModel(application) {
                         fields = fields,
                         formData = initialData,
                         errors = emptyMap(),
-                        schemaJson = parser.getRawSchema()
+                        schemaJson = parser.getRawSchema(),
+                        uiSchema = uiSchema
+                    )
+                }
+                .onFailure { error ->
+                    _uiState.value = FormUiState.Error(
+                        error.message ?: "Failed to load schema"
+                    )
+                }
+        }
+    }
+    
+    fun loadSchema() {
+        viewModelScope.launch {
+            _uiState.value = FormUiState.Loading
+            
+            repository.loadSchema()
+                .onSuccess { json ->
+                    val fields = parser.parse(json)
+                    val uiSchema = parser.parseUiSchema(json)
+                    val initialData = fields.associate { 
+                        it.name to (it.defaultValue ?: getDefaultForType(it))
+                    }
+                    
+                    _uiState.value = FormUiState.FormReady(
+                        fields = fields,
+                        formData = initialData,
+                        errors = emptyMap(),
+                        schemaJson = parser.getRawSchema(),
+                        uiSchema = uiSchema
                     )
                 }
                 .onFailure { error ->
@@ -76,6 +143,61 @@ class FormViewModel(application: Application) : AndroidViewModel(application) {
             formData = newData,
             errors = errors
         )
+    }
+    
+    fun isFieldVisible(fieldName: String): Boolean {
+        val currentState = _uiState.value as? FormUiState.FormReady ?: return true
+        val rules = currentState.uiSchema?.rules ?: return true
+        
+        val applicableRules = rules.filter { it.field == fieldName }
+        if (applicableRules.isEmpty()) return true
+        
+        return applicableRules.all { rule ->
+            val conditionMet = evaluateCondition(rule.condition, currentState.formData)
+            when (rule.effect) {
+                RuleEffect.SHOW -> conditionMet
+                RuleEffect.HIDE -> !conditionMet
+                else -> true
+            }
+        }
+    }
+    
+    fun isFieldEnabled(fieldName: String): Boolean {
+        val currentState = _uiState.value as? FormUiState.FormReady ?: return true
+        val rules = currentState.uiSchema?.rules ?: return true
+        
+        val applicableRules = rules.filter { it.field == fieldName }
+        if (applicableRules.isEmpty()) return true
+        
+        return applicableRules.all { rule ->
+            val conditionMet = evaluateCondition(rule.condition, currentState.formData)
+            when (rule.effect) {
+                RuleEffect.ENABLE -> conditionMet
+                RuleEffect.DISABLE -> !conditionMet
+                else -> true
+            }
+        }
+    }
+    
+    private fun evaluateCondition(condition: Condition, formData: Map<String, Any?>): Boolean {
+        val fieldValue = formData[condition.field]
+        val conditionValue = condition.value
+        
+        return when (condition.operator) {
+            ConditionOperator.EQUALS -> fieldValue == conditionValue
+            ConditionOperator.NOT_EQUALS -> fieldValue != conditionValue
+            ConditionOperator.CONTAINS -> {
+                fieldValue?.toString()?.contains(conditionValue?.toString() ?: "", ignoreCase = true) ?: false
+            }
+            ConditionOperator.GREATER_THAN -> {
+                (fieldValue as? Number)?.toDouble()?.let { it > (conditionValue as? Number)?.toDouble() ?: 0.0 } ?: false
+            }
+            ConditionOperator.LESS_THAN -> {
+                (fieldValue as? Number)?.toDouble()?.let { it < (conditionValue as? Number)?.toDouble() ?: 0.0 } ?: false
+            }
+            ConditionOperator.IS_EMPTY -> fieldValue == null || fieldValue.toString().isBlank()
+            ConditionOperator.NOT_EMPTY -> fieldValue != null && fieldValue.toString().isNotBlank()
+        }
     }
     
     fun submit() {
@@ -148,7 +270,8 @@ sealed class FormUiState {
         val fields: List<FormField>,
         val formData: Map<String, Any?>,
         val errors: Map<String, String>,
-        val schemaJson: String
+        val schemaJson: String,
+        val uiSchema: UiSchema? = null
     ) : FormUiState()
     
     data class Submitting(

@@ -1,62 +1,179 @@
 {
   "type": "object",
   "properties": {
-    "username": {
+    "sensorId": {
       "type": "string",
       "minLength": 3,
       "maxLength": 20,
-      "title": "Username"
+      "title": "מזהה חיישן",
+      "description": "קוד ייחודי לזיהוי החיישן במערכת"
     },
-    "email": {
+    "sensorType": {
       "type": "string",
-      "format": "email",
-      "title": "Email Address"
+      "enum": ["טמפרטורה", "לחות", "לחץ", "תנועה", "עשן", "גז", "רטט"],
+      "title": "סוג חיישן",
+      "description": "בחר את סוג החיישן המותקן"
     },
-    "password": {
+    "location": {
       "type": "string",
-      "format": "password",
-      "minLength": 8,
-      "title": "Password"
+      "title": "מיקום התקנה",
+      "description": "כתובת מלאה או תיאור מיקום החיישן ברחוב",
+      "maxLength": 100
     },
-    "website": {
+    "ipAddress": {
       "type": "string",
       "format": "uri",
-      "title": "Website (Optional)"
+      "title": "כתובת IP",
+      "description": "כתובת רשת לחיבור לחיישן"
     },
-    "age": {
+    "port": {
       "type": "integer",
-      "minimum": 18,
-      "maximum": 120,
-      "title": "Age"
+      "minimum": 1,
+      "maximum": 65535,
+      "title": "פורט",
+      "description": "מספר פורט לתקשורת (ברירת מחדל: 8080)",
+      "default": 8080
     },
-    "birthDate": {
+    "threshold": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "title": "ערך סף להתראה",
+      "description": "ערך מינימלי/מקסימלי לשליחת התראה"
+    },
+    "alertEmail": {
+      "type": "string",
+      "format": "email",
+      "title": "אימייל להתראות",
+      "description": "כתובת אימייל לקבלת התראות"
+    },
+    "alertPhone": {
+      "type": "string",
+      "title": "טלפון להתראות",
+      "description": "מספר נייד ישראלי (05XXXXXXXX)",
+      "pattern": "^05[0-9]{8}$"
+    },
+    "enableAlerts": {
+      "type": "boolean",
+      "title": "הפעל התראות",
+      "description": "אפשר שליחת התראות מהחיישן",
+      "default": true
+    },
+    "alertThresholdExceeded": {
+      "type": "boolean",
+      "title": "התראה בעת חריגה מסף",
+      "default": true
+    },
+    "samplingInterval": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3600,
+      "title": "מרווח דגימה (שניות)",
+      "description": "תדירות דיגום החיישן בשניות",
+      "default": 60
+    },
+    "calibrationDate": {
       "type": "string",
       "format": "date",
-      "title": "Date of Birth"
+      "title": "תאריך כיול אחרון",
+      "description": "תאריך כיול אחרון שבוצע לחיישן"
     },
-    "country": {
+    "installationDate": {
       "type": "string",
-      "enum": ["Israel", "USA", "UK", "Canada", "Other"],
-      "title": "Country"
+      "format": "date",
+      "title": "תאריך התקנה",
+      "description": "תאריך התקנת החיישן בשטח"
     },
-    "bio": {
+    "installerName": {
       "type": "string",
-      "maxLength": 300,
-      "title": "Short Bio"
+      "title": "שם המתקין",
+      "description": "שם הטכנאי או המהנדס המבצע"
     },
-    "skills": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "enum": ["JavaScript", "Python", "Java", "Kotlin", "Go", "React", "Android"]
-      },
-      "title": "Programming Skills"
+    "installerCompany": {
+      "type": "string",
+      "title": "חברת ההתקנה",
+      "description": "שם החברה המבצעת את ההתקנה"
     },
-    "subscribe": {
-      "type": "boolean",
-      "title": "Subscribe to newsletter",
-      "default": false
+    "notes": {
+      "type": "string",
+      "maxLength": 500,
+      "title": "הערות",
+      "description": "הערות ופרטים נוספים להתקנה"
     }
   },
-  "required": ["username", "email", "password", "age"]
+  "required": ["sensorId", "sensorType", "location", "installerName"],
+  "uiSchema": {
+    "layout": "vertical",
+    "spacing": 16,
+    "groups": [
+      {
+        "title": "פרטי חיישן בסיסיים",
+        "collapsible": false,
+        "defaultExpanded": true,
+        "fields": ["sensorId", "sensorType", "location"]
+      },
+      {
+        "title": "הגדרות רשת",
+        "collapsible": true,
+        "defaultExpanded": false,
+        "fields": ["ipAddress", "port"]
+      },
+      {
+        "title": "הגדרות התראות",
+        "collapsible": true,
+        "defaultExpanded": false,
+        "fields": ["enableAlerts", "threshold", "alertThresholdExceeded", "alertEmail", "alertPhone"]
+      },
+      {
+        "title": "הגדרות מתקדמות",
+        "collapsible": true,
+        "defaultExpanded": false,
+        "fields": ["samplingInterval", "calibrationDate"]
+      },
+      {
+        "title": "פרטי התקנה",
+        "collapsible": false,
+        "defaultExpanded": true,
+        "fields": ["installationDate", "installerName", "installerCompany", "notes"]
+      }
+    ],
+    "rules": [
+      {
+        "field": "threshold",
+        "effect": "SHOW",
+        "condition": {
+          "field": "enableAlerts",
+          "operator": "EQUALS",
+          "value": true
+        }
+      },
+      {
+        "field": "alertThresholdExceeded",
+        "effect": "SHOW",
+        "condition": {
+          "field": "enableAlerts",
+          "operator": "EQUALS",
+          "value": true
+        }
+      },
+      {
+        "field": "alertEmail",
+        "effect": "SHOW",
+        "condition": {
+          "field": "enableAlerts",
+          "operator": "EQUALS",
+          "value": true
+        }
+      },
+      {
+        "field": "alertPhone",
+        "effect": "SHOW",
+        "condition": {
+          "field": "enableAlerts",
+          "operator": "EQUALS",
+          "value": true
+        }
+      }
+    ]
+  }
 }
